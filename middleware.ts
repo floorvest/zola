@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from "next/server"
 import { validateCsrfToken } from "./lib/csrf"
 
 export async function middleware(request: NextRequest) {
-  const response = await updateSession(request)
+  let response: NextResponse
+  try {
+    response = await updateSession(request)
+  } catch (error) {
+    console.error("Session refresh failed, continuing without it:", error)
+    response = NextResponse.next({ request })
+  }
 
   // CSRF protection for state-changing requests
   if (["POST", "PUT", "DELETE"].includes(request.method)) {
@@ -19,7 +25,12 @@ export async function middleware(request: NextRequest) {
   const isDev = process.env.NODE_ENV === "development"
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseDomain = supabaseUrl ? new URL(supabaseUrl).origin : ""
+  let supabaseDomain = ""
+  try {
+    supabaseDomain = supabaseUrl ? new URL(supabaseUrl).origin : ""
+  } catch {
+    supabaseDomain = ""
+  }
 
   response.headers.set(
     "Content-Security-Policy",
