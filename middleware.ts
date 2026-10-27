@@ -1,6 +1,5 @@
 import { updateSession } from "@/utils/supabase/middleware"
 import { NextResponse, type NextRequest } from "next/server"
-import { validateCsrfToken } from "./lib/csrf"
 
 export async function middleware(request: NextRequest) {
   let response: NextResponse
@@ -16,7 +15,11 @@ export async function middleware(request: NextRequest) {
     const csrfCookie = request.cookies.get("csrf_token")?.value
     const headerToken = request.headers.get("x-csrf-token")
 
-    if (!csrfCookie || !headerToken || !validateCsrfToken(headerToken)) {
+    // Double-submit check: the header must match the csrf cookie value.
+    // Compared directly instead of importing lib/csrf, because that helper
+    // pulls Node's `crypto` and `next/headers` into the middleware bundle,
+    // which made every request fail with MIDDLEWARE_INVOCATION_FAILED.
+    if (!csrfCookie || !headerToken || headerToken !== csrfCookie) {
       return new NextResponse("Invalid CSRF token", { status: 403 })
     }
   }
@@ -46,5 +49,4 @@ export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
-  runtime: "nodejs",
 }
